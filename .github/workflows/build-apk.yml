@@ -15,16 +15,19 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Create Native Android Project
+      - name: Set up Gradle 8.5
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: Scaffold Android App
         run: |
           mkdir -p android-app/app/src/main/assets
           mkdir -p android-app/app/src/main/java/com/sens/controller
           mkdir -p android-app/app/src/main/res/values
 
-          # Copy web app into assets
           cp index.html android-app/app/src/main/assets/
 
-          # Root settings.gradle
           cat << 'EOF' > android-app/settings.gradle
           pluginManagement {
               repositories {
@@ -44,14 +47,12 @@ jobs:
           include ':app'
           EOF
 
-          # Root build.gradle
           cat << 'EOF' > android-app/build.gradle
           plugins {
               id 'com.android.application' version '8.2.2' apply false
           }
           EOF
 
-          # App build.gradle
           cat << 'EOF' > android-app/app/build.gradle
           plugins {
               id 'com.android.application'
@@ -78,11 +79,9 @@ jobs:
 
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'androidx.webkit:webkit:1.10.0'
           }
           EOF
 
-          # AndroidManifest.xml
           cat << 'EOF' > android-app/app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -105,7 +104,6 @@ jobs:
           </manifest>
           EOF
 
-          # MainActivity.java
           cat << 'EOF' > android-app/app/src/main/java/com/sens/controller/MainActivity.java
           package com.sens.controller;
 
@@ -117,13 +115,11 @@ jobs:
           import androidx.appcompat.app.AppCompatActivity;
 
           public class MainActivity extends AppCompatActivity {
-              private WebView webView;
-
               @SuppressLint("SetJavaScriptEnabled")
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  webView = new WebView(this);
+                  WebView webView = new WebView(this);
                   setContentView(webView);
 
                   WebSettings settings = webView.getSettings();
@@ -136,25 +132,13 @@ jobs:
                   webView.setWebViewClient(new WebViewClient());
                   webView.loadUrl("file:///android_asset/index.html");
               }
-
-              @Override
-              public void onBackPressed() {
-                  if (webView.canGoBack()) {
-                      webView.goBack();
-                  } else {
-                      super.onBackPressed();
-                  }
-              }
           }
           EOF
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
 
       - name: Build Debug APK
         run: |
           cd android-app
-          gradle assembleDebug --stacktrace
+          gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
