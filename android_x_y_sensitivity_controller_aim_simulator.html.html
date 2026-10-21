@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SensiPro // Android X & Y Sensitivity Controller & Aim Lab</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Orbitron & Rajdhani for Cyber/Gamer HUD Aesthetic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#080a10',
+                            card: '#0f1422',
+                            cardBorder: '#1c263c',
+                            neonCyan: '#00f3ff',
+                            neonRed: '#ff0055',
+                            neonGreen: '#00ff66',
+                            neonYellow: '#ffea00',
+                            dimText: '#7e8ca3'
+                        }
+                    },
+                    fontFamily: {
+                        hud: ['"Chakra Petch"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        raj: ['Rajdhani', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Cyberpunk Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080a10;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1c263c;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00f3ff;
+        }
+
+        /* Scanline effect */
+        .scanlines {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.03),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.03)
+            );
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+        }
+
+        /* Touch Action control for responsive canvas swiping */
+        .touch-surface {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Custom range sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #151b2b;
+            border-radius: 9999px;
+            height: 6px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #00f3ff;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00f3ff;
+            border: 2px solid #ffffff;
+            transition: transform 0.1s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type=range].slider-red::-webkit-slider-thumb {
+            background: #ff0055;
+            box-shadow: 0 0 10px #ff0055;
+        }
+    </style>
+</head>
+<body class="bg-cyber-bg text-slate-100 font-hud min-h-screen flex flex-col selection:bg-cyan-500 selection:text-black">
+
+    <!-- Top Navigation HUD Bar -->
+    <header class="border-b border-cyber-cardBorder bg-cyber-card/80 backdrop-blur-md sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-lg bg-cyber-neonCyan/10 border border-cyber-neonCyan flex items-center justify-center text-cyber-neonCyan shadow-[0_0_15px_rgba(0,243,255,0.3)]">
+                    <i class="fa-solid fa-crosshairs text-lg animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wider text-white flex items-center gap-2">
+                        SENSI<span class="text-cyber-neonCyan">PRO</span>
+                        <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border border-cyber-neonCyan/40 text-cyber-neonCyan bg-cyan-950/40">X/Y CALIBRATOR</span>
+                    </h1>
+                    <p class="text-[11px] text-cyber-dimText font-mono">Mobile FPS & BR Touch Sensitivity Rig</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <!-- Live Ping & Refresh Simulation -->
+                <div class="hidden sm:flex items-center space-x-2 font-mono text-xs text-cyber-dimText px-3 py-1 bg-cyber-bg rounded-md border border-cyber-cardBorder">
+                    <span class="w-2 h-2 rounded-full bg-cyber-neonGreen animate-ping"></span>
+                    <span>ENGINE: 120HZ TOUCH POLLING</span>
+                </div>
+                <button id="resetDefaultsBtn" class="px-3 py-1.5 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 text-xs font-mono transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span class="hidden sm:inline">RESET</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto w-full p-3 sm:p-5 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Left / Upper: Canvas Aiming Arena & Live Metrics (7 cols on Desktop) -->
+        <div class="lg:col-span-7 flex flex-col space-y-4">
+            
+            <!-- Canvas Container -->
+            <div class="bg-cyber-card rounded-2xl border border-cyber-cardBorder overflow-hidden shadow-2xl relative flex flex-col">
+                
+                <!-- Arena HUD Header -->
+                <div class="px-4 py-2.5 border-b border-cyber-cardBorder flex items-center justify-between bg-black/40 text-xs font-mono">
+                    <div class="flex items-center gap-2 text-cyber-neonCyan">
+                        <i class="fa-solid fa-bullseye"></i>
+                        <span class="font-bold tracking-wider uppercase">Virtual Mobile Screen / Aim Arena</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="canvasFps" class="text-cyber-dimText">FPS: 60</span>
+                        <span id="dragModeNotice" class="text-cyber-neonYellow hidden sm:inline"><i class="fa-solid fa-fingerprint mr-1"></i>Touch/Drag to Aim</span>
+                    </div>
+                </div>
+
+                <!-- Simulation Interactive Area -->
+                <div class="relative w-full h-[360px] sm:h-[440px] bg-[#05070d] touch-surface cursor-crosshair overflow-hidden group" id="touchArenaWrapper">
+                    <canvas id="aimCanvas" class="w-full h-full block"></canvas>
+                    
+                    <!-- Scanline & Grid Overlays -->
+                    <div class="scanlines absolute inset-0"></div>
+                    
+                    <!-- In-Canvas Corner HUD Metrics -->
+                    <div class="absolute top-3 left-3 pointer-events-none font-mono text-[11px] bg-black/70 backdrop-blur-sm p-2 rounded-lg border border-cyber-cardBorder space-y-1">
+                        <div class="text-cyber-dimText">SWIPE DELTA: <span id="hudDelta" class="text-white">X: 0 | Y: 0</span></div>
+                        <div class="text-cyber-dimText">CROSSHAIR POS: <span id="hudPos" class="text-cyber-neonCyan">X: 0, Y: 0</span></div>
+                        <div class="text-cyber-dimText">RECOIL STATE: <span id="hudRecoil" class="text-slate-400">IDLE</span></div>
+                    </div>
+
+                    <!-- Target Hit / Score Indicator -->
+                    <div class="absolute top-3 right-3 pointer-events-none font-mono text-[11px] bg-black/70 backdrop-blur-sm px-3 py-2 rounded-lg border border-cyber-cardBorder flex items-center gap-3">
+                        <div>
+                            <div class="text-[9px] text-cyber-dimText">TARGET ACCURACY</div>
+                            <div id="accuracyVal" class="text-base font-bold text-cyber-neonGreen">0%</div>
+                        </div>
+                        <div class="border-l border-white/10 pl-3">
+                            <div class="text-[9px] text-cyber-dimText">HITS</div>
+                            <div id="hitsVal" class="text-base font-bold text-white">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Touch Drag Indicator prompt -->
+                    <div id="dragHelpOverlay" class="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-700 bg-black/40">
+                        <div class="text-center p-4 rounded-xl border border-cyber-neonCyan/30 bg-black/80 backdrop-blur">
+                            <i class="fa-solid fa-arrows-up-down-left-right text-3xl text-cyber-neonCyan animate-bounce mb-2"></i>
+                            <p class="text-sm text-white font-raj font-semibold">CLICK & DRAG OR SWIPE ON PHONE</p>
+                            <p class="text-xs text-cyber-dimText font-mono">Test independent horizontal and vertical drag behavior</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arena Quick Controls Bar -->
+                <div class="p-3 bg-cyber-card/90 border-t border-cyber-cardBorder flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2">
+                        <!-- Recoil Simulator Toggle -->
+                        <button id="toggleRecoilBtn" class="px-3 py-1.5 rounded-lg border border-white/10 bg-black/30 hover:border-cyber-neonRed/50 font-mono flex items-center gap-2 transition text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                            <span>Recoil Simulation</span>
+                        </button>
+                        
+                        <!-- Target Practice Mode -->
+                        <button id="toggleTargetBtn" class="px-3 py-1.5 rounded-lg border border-cyber-neonGreen/40 bg-cyber-neonGreen/10 font-mono text-cyber-neonGreen flex items-center gap-2 transition">
+                            <i class="fa-solid fa-bullseye"></i>
+                            <span>Moving Targets</span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="centerAimBtn" class="px-3 py-1.5 rounded-lg border border-white/10 bg-black/30 hover:border-cyber-neonCyan/50 font-mono text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-location-crosshairs"></i>
+                            <span>Center Aim</span>
+                        </button>
+                        <button id="resetScoreBtn" class="px-2.5 py-1.5 rounded-lg border border-white/10 bg-black/30 hover:bg-white/5 text-cyber-dimText" title="Reset hits">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Realtime X vs Y Ratio Visualizer Bar -->
+            <div class="bg-cyber-card rounded-xl border border-cyber-cardBorder p-4 shadow-lg">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-mono uppercase text-cyber-dimText flex items-center gap-1.5">
+                        <i class="fa-solid fa-chart-simple text-cyber-neonCyan"></i>
+                        Sensitivity Ratio Dynamics (X vs Y Balance)
+                    </span>
+                    <span id="currentRatioBadge" class="text-xs font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyber-neonCyan border border-cyan-800">
+                        Ratio: 1 : 1.00
+                    </span>
+                </div>
+                <div class="w-full bg-black/50 h-3 rounded-full overflow-hidden flex border border-white/10">
+                    <div id="ratioBarX" class="bg-cyber-neonCyan h-full transition-all duration-150" style="width: 50%"></div>
+                    <div id="ratioBarY" class="bg-cyber-neonRed h-full transition-all duration-150" style="width: 50%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] font-mono mt-1 text-cyber-dimText">
+                    <span class="flex items-center gap-1 text-cyber-neonCyan"><i class="fa-solid fa-left-right"></i> Horizontal (X): <span id="ratioBarXVal">50%</span></span>
+                    <span class="flex items-center gap-1 text-cyber-neonRed"><i class="fa-solid fa-up-down"></i> Vertical (Y): <span id="ratioBarYVal">50%</span></span>
+                </div>
+            </div>
+
+            <!-- Pro Tip Banner -->
+            <div class="bg-gradient-to-r from-cyan-950/30 to-purple-950/20 border border-cyber-neonCyan/20 rounded-xl p-3 flex items-start gap-3">
+                <i class="fa-solid fa-lightbulb text-cyber-neonYellow text-base mt-0.5"></i>
+                <div class="text-xs">
+                    <span class="font-bold text-white uppercase tracking-wide">Why Vertical (Y) is critical for Mobile Battle Royale:</span>
+                    <p class="text-slate-300 mt-0.5 font-sans leading-relaxed">
+                        In games like Free Fire and PUBG Mobile, swipe distance for dragging up (One-Tap Headshots or vertical recoil control) is physically constrained by the thumb's vertical reach. Setting Y at <span class="text-cyber-neonCyan font-mono font-semibold">1.2x – 1.6x</span> of X sensitivity allows effortless drag headshots without lifting your thumb.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right / Lower: Sens Controllers, Presets & Android Generator (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col space-y-4">
+            
+            <!-- Quick Presets Dropdown & Buttons -->
+            <div class="bg-cyber-card rounded-2xl border border-cyber-cardBorder p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xs font-mono font-bold tracking-wider uppercase text-white flex items-center gap-2">
+                        <i class="fa-solid fa-gamepad text-cyber-neonCyan"></i>
+                        Esports Game Presets
+                    </h2>
+                    <span class="text-[10px] font-mono text-cyber-dimText">Auto-Tunes X:Y Multipliers</span>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 text-xs font-mono">
+                    <button class="preset-btn px-2.5 py-2 rounded-lg border border-cyber-cardBorder bg-black/40 hover:border-cyber-neonCyan/60 hover:bg-cyan-950/30 transition text-left flex items-center gap-2" data-preset="freefire">
+                        <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+                        <div>
+                            <div class="font-bold text-white">Free Fire</div>
+                            <div class="text-[10px] text-cyber-dimText">One-Tap High-Y</div>
+                        </div>
+                    </button>
+
+                    <button class="preset-btn px-2.5 py-2 rounded-lg border border-cyber-cardBorder bg-black/40 hover:border-cyber-neonCyan/60 hover:bg-cyan-950/30 transition text-left flex items-center gap-2" data-preset="pubg">
+                        <span class="w-2 h-2 rounded-full bg-orange-400"></span>
+                        <div>
+                            <div class="font-bold text-white">PUBG / BGMI</div>
+                            <div class="text-[10px] text-cyber-dimText">Gyro/Spray Recoil</div>
+                        </div>
+                    </button>
+
+                    <button class="preset-btn px-2.5 py-2 rounded-lg border border-cyber-cardBorder bg-black/40 hover:border-cyber-neonCyan/60 hover:bg-cyan-950/30 transition text-left flex items-center gap-2" data-preset="codm">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                        <div>
+                            <div class="font-bold text-white">COD Mobile</div>
+                            <div class="text-[10px] text-cyber-dimText">Fixed Speed 1:1.2</div>
+                        </div>
+                    </button>
+
+                    <button class="preset-btn px-2.5 py-2 rounded-lg border border-cyber-cardBorder bg-black/40 hover:border-cyber-neonCyan/60 hover:bg-cyan-950/30 transition text-left flex items-center gap-2" data-preset="balanced">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <div>
+                            <div class="font-bold text-white">Standard 1:1</div>
+                            <div class="text-[10px] text-cyber-dimText">Balanced Neutral</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sensitivity Sliders Panel -->
+            <div class="bg-cyber-card rounded-2xl border border-cyber-cardBorder p-4 sm:p-5 shadow-xl space-y-4">
+                <div class="flex items-center justify-between border-b border-cyber-cardBorder pb-3">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-cyber-neonCyan"></i>
+                        Core Sensitivity Axes
+                    </h2>
+                    
+                    <!-- Link / Unlink Ratio Toggle -->
+                    <button id="ratioLockBtn" class="px-2.5 py-1 rounded-md text-xs font-mono border border-cyan-500/40 bg-cyan-950/30 text-cyber-neonCyan flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-link" id="ratioLockIcon"></i>
+                        <span id="ratioLockText">RATIO UNLOCKED</span>
+                    </button>
+                </div>
+
+                <!-- X Sensitivity Slider -->
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-xs font-mono">
+                        <label for="sensXSlider" class="flex items-center gap-2 text-cyber-neonCyan font-bold">
+                            <i class="fa-solid fa-arrows-left-right"></i>
+                            X SENSITIVITY (HORIZONTAL)
+                        </label>
+                        <div class="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded border border-cyber-cardBorder">
+                            <span id="sensXValText" class="text-white font-bold">1.80</span>
+                            <span class="text-[10px] text-cyber-dimText">x</span>
+                        </div>
+                    </div>
+                    <input type="range" id="sensXSlider" min="0.2" max="4.0" step="0.05" value="1.80" class="w-full">
+                    <div class="flex justify-between text-[10px] font-mono text-cyber-dimText">
+                        <span>0.2x (Slow Sweep)</span>
+                        <span>1.0x Normal</span>
+                        <span>4.0x (Extreme Flick)</span>
+                    </div>
+                </div>
+
+                <!-- Y Sensitivity Slider -->
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-xs font-mono">
+                        <label for="sensYSlider" class="flex items-center gap-2 text-cyber-neonRed font-bold">
+                            <i class="fa-solid fa-arrows-up-down"></i>
+                            Y SENSITIVITY (VERTICAL)
+                        </label>
+                        <div class="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded border border-cyber-cardBorder">
+                            <span id="sensYValText" class="text-white font-bold">2.40</span>
+                            <span class="text-[10px] text-cyber-dimText">x</span>
+                        </div>
+                    </div>
+                    <input type="range" id="sensYSlider" min="0.2" max="4.0" step="0.05" value="2.40" class="w-full slider-red">
+                    <div class="flex justify-between text-[10px] font-mono text-cyber-dimText">
+                        <span>0.2x (Tight Aim)</span>
+                        <span>1.0x Normal</span>
+                        <span>4.0x (Hyper Drag)</span>
+                    </div>
+                </div>
+
+                <!-- Scope / Modifier Sliders Accordion -->
+                <div class="border-t border-cyber-cardBorder pt-3 space-y-3">
+                    <div class="flex items-center justify-between text-xs font-mono text-slate-300">
+                        <span class="uppercase tracking-wider text-cyber-dimText flex items-center gap-1.5">
+                            <i class="fa-solid fa-crosshairs text-xs"></i> Mode Multipliers (ADS & Scopes)
+                        </span>
+                        <select id="scopeSelect" class="bg-black/60 border border-cyber-cardBorder text-white text-xs rounded px-2 py-1 font-mono focus:border-cyber-neonCyan focus:outline-none">
+                            <option value="general">General / Free Look (1.0x)</option>
+                            <option value="reddot">Red Dot / Holo (0.9x)</option>
+                            <option value="scope2x">2x Scope (0.8x)</option>
+                            <option value="scope4x">4x Scope (0.6x)</option>
+                            <option value="sniper">Sniper ADS (0.4x)</option>
+                        </select>
+                    </div>
+
+                    <!-- Screen DPI & Resolution Scaling Simulator -->
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between text-xs font-mono">
+                            <label for="dpiSelect" class="text-cyber-dimText flex items-center gap-1">
+                                <i class="fa-solid fa-mobile-screen"></i> DEVICE SCREEN DPI / DENSITY
+                            </label>
+                            <span id="dpiValText" class="text-cyber-neonYellow">420 DPI (FHD+)</span>
+                        </div>
+                        <select id="dpiSelect" class="w-full bg-black/60 border border-cyber-cardBorder text-white text-xs rounded-lg px-3 py-2 font-mono focus:border-cyber-neonCyan focus:outline-none">
+                            <option value="320">320 DPI - Low Density / Budget 720p Device</option>
+                            <option value="420" selected>420 DPI - Standard FHD+ (Redmi, Samsung A, Realme)</option>
+                            <option value="480">480 DPI - High Density FHD+ Flagship (Poco, OnePlus, iQOO)</option>
+                            <option value="560">560 DPI - Ultra High Density QHD+ (Galaxy Ultra, ROG Phone)</option>
+                        </select>
+                    </div>
+
+                    <!-- Touch Smoothing Curve -->
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between text-xs font-mono">
+                            <span class="text-cyber-dimText">SWIPE ACCELERATION CURVE</span>
+                            <span id="accelModeText" class="text-xs text-white">Linear (1:1 Muscle Memory)</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-xs font-mono">
+                            <button class="accel-btn py-1 px-2 rounded border border-cyber-neonCyan bg-cyan-950/40 text-cyber-neonCyan" data-accel="linear">Linear</button>
+                            <button class="accel-btn py-1 px-2 rounded border border-cyber-cardBorder bg-black/30 text-cyber-dimText hover:border-white/20" data-accel="speed">Speed Accel</button>
+                            <button class="accel-btn py-1 px-2 rounded border border-cyber-cardBorder bg-black/30 text-cyber-dimText hover:border-white/20" data-accel="smooth">Smoothing</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Android System & In-Game Recommendations Box -->
+            <div class="bg-cyber-card rounded-2xl border border-cyber-cardBorder p-4 sm:p-5 shadow-xl relative overflow-hidden">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-cyber-cardBorder">
+                    <div>
+                        <h3 class="text-xs font-mono font-bold tracking-wider text-white uppercase flex items-center gap-1.5">
+                            <i class="fa-brands fa-android text-cyber-neonGreen text-sm"></i>
+                            Android Config Output
+                        </h3>
+                        <p class="text-[10px] text-cyber-dimText font-mono">Ready to apply directly on your phone</p>
+                    </div>
+                    <button id="copyConfigBtn" class="px-3 py-1.5 rounded-lg border border-cyber-neonGreen/40 bg-cyber-neonGreen/10 hover:bg-cyber-neonGreen/20 text-cyber-neonGreen text-xs font-mono flex items-center gap-1.5 transition active:scale-95">
+                        <i class="fa-solid fa-clipboard"></i>
+                        <span id="copyBtnText">COPY CONFIG</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2.5 text-center font-mono mb-3">
+                    <div class="p-2.5 rounded-xl bg-black/40 border border-cyber-cardBorder">
+                        <div class="text-[10px] text-cyber-dimText uppercase">Smallest Width (DPI)</div>
+                        <div id="cfgDpi" class="text-base font-bold text-cyber-neonYellow mt-0.5">460</div>
+                        <div class="text-[9px] text-slate-500">Dev Options</div>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-black/40 border border-cyber-cardBorder">
+                        <div class="text-[10px] text-cyber-dimText uppercase">Pointer Speed</div>
+                        <div id="cfgPointer" class="text-base font-bold text-cyber-neonCyan mt-0.5">+4 / 10</div>
+                        <div class="text-[9px] text-slate-500">System Setting</div>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-black/40 border border-cyber-cardBorder">
+                        <div class="text-[10px] text-cyber-dimText uppercase">Touch & Hold</div>
+                        <div class="text-base font-bold text-cyber-neonGreen mt-0.5">SHORT</div>
+                        <div class="text-[9px] text-slate-500">Accessibility</div>
+                    </div>
+                </div>
+
+                <!-- Formatted In-Game Slider Equivalents -->
+                <div class="bg-black/60 rounded-xl p-3 border border-cyber-cardBorder font-mono text-xs space-y-1.5">
+                    <div class="text-[11px] text-cyber-neonCyan font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
+                        <span>Calculated In-Game Sliders</span>
+                        <span class="text-[10px] text-cyber-dimText font-normal">Game: 0 - 100 Scale</span>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-300">
+                        <span>General / Camera (X):</span>
+                        <span id="cfgGameX" class="text-white font-bold bg-white/5 px-2 py-0.5 rounded">95</span>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-300">
+                        <span>Vertical / Recoil (Y):</span>
+                        <span id="cfgGameY" class="text-cyber-neonRed font-bold bg-white/5 px-2 py-0.5 rounded">100 (Max)</span>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-300">
+                        <span>Red Dot / ADS:</span>
+                        <span id="cfgGameAds" class="text-white font-bold bg-white/5 px-2 py-0.5 rounded">86</span>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-300">
+                        <span>2x / 4x Scope:</span>
+                        <span id="cfgGameScope" class="text-white font-bold bg-white/5 px-2 py-0.5 rounded">75</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Custom Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-cyber-card border border-cyber-neonCyan text-white px-4 py-2.5 rounded-xl shadow-[0_0_20px_rgba(0,243,255,0.3)] font-mono text-xs flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
+        <i class="fa-solid fa-circle-check text-cyber-neonCyan"></i>
+        <span id="toastMsg">Config copied to clipboard!</span>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // State Management
+        const state = {
+            sensX: 1.80,
+            sensY: 2.40,
+            ratioLocked: false,
+            lockedRatioValue: 1.333, // Y / X
+            baseDpi: 420,
+            scopeMultiplier: 1.0,
+            accelMode: 'linear',
+            recoilEnabled: true,
+            targetsEnabled: true,
+            
+            // Aim Simulation Coordinates
+            crosshair: { x: 0, y: 0 },
+            recoilOffset: { x: 0, y: 0 },
+            isDragging: false,
+            lastTouch: { x: 0, y: 0 },
+            dragVelocity: { x: 0, y: 0 },
+            
+            // Targets & Stats
+            targets: [],
+            hits: 0,
+            totalSwipes: 0,
+            fps: 60
+        };
+
+        // DOM Elements
+        const canvas = document.getElementById('aimCanvas');
+        const ctx = canvas.getContext('2d');
+        const touchWrapper = document.getElementById('touchArenaWrapper');
+        const sensXSlider = document.getElementById('sensXSlider');
+        const sensYSlider = document.getElementById('sensYSlider');
+        const sensXValText = document.getElementById('sensXValText');
+        const sensYValText = document.getElementById('sensYValText');
+        const ratioLockBtn = document.getElementById('ratioLockBtn');
+        const ratioLockIcon = document.getElementById('ratioLockIcon');
+        const ratioLockText = document.getElementById('ratioLockText');
+        const ratioBarX = document.getElementById('ratioBarX');
+        const ratioBarY = document.getElementById('ratioBarY');
+        const ratioBarXVal = document.getElementById('ratioBarXVal');
+        const ratioBarYVal = document.getElementById('ratioBarYVal');
+        const currentRatioBadge = document.getElementById('currentRatioBadge');
+        const dpiSelect = document.getElementById('dpiSelect');
+        const dpiValText = document.getElementById('dpiValText');
+        const scopeSelect = document.getElementById('scopeSelect');
+        const toggleRecoilBtn = document.getElementById('toggleRecoilBtn');
+        const toggleTargetBtn = document.getElementById('toggleTargetBtn');
+        const centerAimBtn = document.getElementById('centerAimBtn');
+        const resetScoreBtn = document.getElementById('resetScoreBtn');
+        const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+        const copyConfigBtn = document.getElementById('copyConfigBtn');
+        const copyBtnText = document.getElementById('copyBtnText');
+        const dragHelpOverlay = document.getElementById('dragHelpOverlay');
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toastMsg');
+        
+        // Output Elements
+        const hudDelta = document.getElementById('hudDelta');
+        const hudPos = document.getElementById('hudPos');
+        const hudRecoil = document.getElementById('hudRecoil');
+        const accuracyVal = document.getElementById('accuracyVal');
+        const hitsVal = document.getElementById('hitsVal');
+        const canvasFps = document.getElementById('canvasFps');
+        const cfgDpi = document.getElementById('cfgDpi');
+        const cfgPointer = document.getElementById('cfgPointer');
+        const cfgGameX = document.getElementById('cfgGameX');
+        const cfgGameY = document.getElementById('cfgGameY');
+        const cfgGameAds = document.getElementById('cfgGameAds');
+        const cfgGameScope = document.getElementById('cfgGameScope');
+
+        // Presets Definition
+        const presets = {
+            freefire: {
+                x: 1.95,
+                y: 3.10,
+                desc: 'Free Fire One-Tap Headshot Drag (Extra vertical boost)',
+                dpi: 480
+            },
+            pubg: {
+                x: 1.45,
+                y: 1.85,
+                desc: 'PUBG / BGMI Spray Control (Consistent pull-down)',
+                dpi: 420
+            },
+            codm: {
+                x: 1.60,
+                y: 1.92,
+                desc: 'COD Mobile Speed Accel balanced for MP & BR',
+                dpi: 420
+            },
+            balanced: {
+                x: 1.50,
+                y: 1.50,
+                desc: 'Clean 1:1 isometric ratio for tracking',
+                dpi: 420
+            }
+        };
+
+        // Resize Canvas to fit container with high-DPI crisp rendering
+        function resizeCanvas() {
+            const rect = touchWrapper.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            // Re-center crosshair if zeroed
+            if (state.crosshair.x === 0 && state.crosshair.y === 0) {
+                state.crosshair.x = rect.width / 2;
+                state.crosshair.y = rect.height / 2;
+            }
+            initTargets(rect.width, rect.height);
+        }
+
+        // Initialize target practice orbs
+        function initTargets(width, height) {
+            state.targets = [];
+            const numTargets = 3;
+            for (let i = 0; i < numTargets; i++) {
+                state.targets.push({
+                    x: Math.random() * (width - 100) + 50,
+                    y: Math.random() * (height - 100) + 50,
+                    radius: 20 + Math.random() * 8,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: (Math.random() - 0.5) * 1.2,
+                    type: i === 0 ? 'head' : 'body', // Head gives critical feedback
+                    pulse: 0
+                });
+            }
+        }
+
+        // Show Toast Notification
+        function showToast(message) {
+            toastMsg.textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // Update Ratio Bar & UI Displays
+        function updateSensUI() {
+            sensXSlider.value = state.sensX.toFixed(2);
+            sensYSlider.value = state.sensY.toFixed(2);
+            sensXValText.textContent = state.sensX.toFixed(2);
+            sensYValText.textContent = state.sensY.toFixed(2);
+
+            // Calculate ratio
+            const ratio = state.sensY / (state.sensX || 0.001);
+            currentRatioBadge.textContent = `Ratio: 1 : ${ratio.toFixed(2)}`;
+            
+            const total = state.sensX + state.sensY;
+            const pctX = ((state.sensX / total) * 100).toFixed(0);
+            const pctY = (100 - pctX).toFixed(0);
+            ratioBarX.style.width = `${pctX}%`;
+            ratioBarY.style.width = `${pctY}%`;
+            ratioBarXVal.textContent = `${pctX}%`;
+            ratioBarYVal.textContent = `${pctY}%`;
+
+            updateConfigOutputs();
+        }
+
+        // Android Recommendation Engine
+        function updateConfigOutputs() {
+            // Screen DPI Scale Factor
+            const dpiMultiplier = state.baseDpi / 400;
+
+            // Free Fire / PUBG in-game slider formulas (Normalized 0 to 100)
+            const calculatedGameX = Math.min(100, Math.round((state.sensX / 2.5) * 85 * dpiMultiplier));
+            const calculatedGameY = Math.min(100, Math.round((state.sensY / 2.5) * 85 * dpiMultiplier));
+            const calculatedAds = Math.min(100, Math.round(calculatedGameX * 0.88));
+            const calculatedScope = Math.min(100, Math.round(calculatedGameX * 0.74));
+
+            // Recommended Developer Options "Smallest Width" DPI
+            // High sensitivity benefits from a slightly elevated DPI to increase registered touch points
+            let recDpi = state.baseDpi;
+            if (state.sensY > 2.2 || state.sensX > 2.0) {
+                recDpi = Math.min(600, Math.round(state.baseDpi * 1.12));
+            }
+
+            // Recommended Android Pointer Speed (-5 to +5 / 0 to 10 bar)
+            let recPointerSpeed = '+3';
+            if (state.sensX > 2.2) recPointerSpeed = '+5 (Max)';
+            else if (state.sensX < 1.0) recPointerSpeed = '0 (Default)';
+            else recPointerSpeed = '+2 to +4';
+
+            // Apply to DOM
+            cfgDpi.textContent = recDpi;
+            cfgPointer.textContent = recPointerSpeed;
+            cfgGameX.textContent = calculatedGameX;
+            cfgGameY.textContent = calculatedGameY >= 100 ? '100 (Max)' : calculatedGameY;
+            cfgGameAds.textContent = calculatedAds;
+            cfgGameScope.textContent = calculatedScope;
+        }
+
+        // Copy Config formatted text
+        function copyConfiguration() {
+            const ratio = (state.sensY / state.sensX).toFixed(2);
+            const textToCopy = `=== SENSI PRO CALIBRATION PROFILE ===
+[SENSITIVITY CONTROLLER]
+• Horizontal (X): ${state.sensX.toFixed(2)}x
+• Vertical (Y):   ${state.sensY.toFixed(2)}x
+• Dynamic Ratio:  1 : ${ratio}
+• Scope ADS Mod:  ${state.scopeMultiplier}x
+
+[ANDROID SYSTEM SETTINGS]
+• Smallest Width (DPI): ${cfgDpi.textContent}
+• Pointer Speed:        ${cfgPointer.textContent}
+• Touch & Hold Delay:   Short (0.5s)
+
+[RECOMMENDED IN-GAME SLIDERS]
+• General / Camera:     ${cfgGameX.textContent}
+• Vertical Recoil/Drag: ${cfgGameY.textContent}
+• Red Dot / Holo ADS:   ${cfgGameAds.textContent}
+• 2x / 4x Scopes:       ${cfgGameScope.textContent}
+• Acceleration Curve:   ${state.accelMode.toUpperCase()}
+Generated with SensiPro Calibration Rig`;
+
+            // Clipboard fallback
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    showToast('Full Android profile copied to clipboard!');
+                }).catch(() => {
+                    legacyCopy(textToCopy);
+                });
+            } else {
+                legacyCopy(textToCopy);
+            }
+        }
+
+        function legacyCopy(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('Config copied to clipboard!');
+            } catch (err) {
+                showToast('Error copying to clipboard');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Pointer / Touch Handlers for Arena
+        function getPointerPos(e) {
+            const rect = touchWrapper.getBoundingClientRect();
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function handleDragStart(e) {
+            state.isDragging = true;
+            dragHelpOverlay.style.opacity = '0';
+            const pos = getPointerPos(e);
+            state.lastTouch = pos;
+            state.totalSwipes++;
+
+            // Recoil trigger on tap/fire
+            if (state.recoilEnabled) {
+                triggerRecoilImpulse();
+            }
+        }
+
+        function handleDragMove(e) {
+            if (!state.isDragging) return;
+            e.preventDefault();
+
+            const pos = getPointerPos(e);
+            let rawDeltaX = pos.x - state.lastTouch.x;
+            let rawDeltaY = pos.y - state.lastTouch.y;
+
+            // Apply Acceleration Curve
+            let accelFactor = 1.0;
+            const swipeSpeed = Math.hypot(rawDeltaX, rawDeltaY);
+            if (state.accelMode === 'speed') {
+                accelFactor = Math.min(2.2, 1.0 + (swipeSpeed * 0.03));
+            } else if (state.accelMode === 'smooth') {
+                accelFactor = 0.92;
+            }
+
+            // Apply Core X and Y Multipliers + Scope modifier
+            const effectiveX = rawDeltaX * state.sensX * state.scopeMultiplier * accelFactor;
+            const effectiveY = rawDeltaY * state.sensY * state.scopeMultiplier * accelFactor;
+
+            state.dragVelocity.x = effectiveX;
+            state.dragVelocity.y = effectiveY;
+
+            // Update Crosshair Position
+            const rect = touchWrapper.getBoundingClientRect();
+            state.crosshair.x = Math.max(10, Math.min(rect.width - 10, state.crosshair.x + effectiveX));
+            state.crosshair.y = Math.max(10, Math.min(rect.height - 10, state.crosshair.y + effectiveY));
+
+            // HUD string updates
+            hudDelta.textContent = `X: ${rawDeltaX > 0 ? '+' : ''}${rawDeltaX.toFixed(1)} | Y: ${rawDeltaY > 0 ? '+' : ''}${rawDeltaY.toFixed(1)}`;
+            hudPos.textContent = `X: ${Math.round(state.crosshair.x)}, Y: ${Math.round(state.crosshair.y)}`;
+
+            // Check Target Hits
+            checkTargetCollision();
+
+            state.lastTouch = pos;
+        }
+
+        function handleDragEnd() {
+            state.isDragging = false;
+        }
+
+        // Recoil Physics Simulation (Pushes aim upwards and slight random horizontal kick)
+        function triggerRecoilImpulse() {
+            // In mobile FPS, firing causes upward climb
+            const verticalRecoilKick = -(14 + Math.random() * 8) * (state.scopeMultiplier || 1);
+            const horizontalSway = (Math.random() - 0.5) * 8;
+            
+            state.recoilOffset.y += verticalRecoilKick;
+            state.recoilOffset.x += horizontalSway;
+            hudRecoil.textContent = "FIRE / CLIMBING";
+            hudRecoil.className = "text-cyber-neonRed font-bold animate-pulse";
+
+            setTimeout(() => {
+                hudRecoil.textContent = "RECOVERING";
+                hudRecoil.className = "text-cyber-neonYellow";
+            }, 120);
+
+            setTimeout(() => {
+                hudRecoil.textContent = "IDLE";
+                hudRecoil.className = "text-slate-400";
+            }, 300);
+        }
+
+        // Check Target Hit Collision
+        function checkTargetCollision() {
+            if (!state.targetsEnabled) return;
+            
+            const chX = state.crosshair.x;
+            const chY = state.crosshair.y;
+
+            state.targets.forEach(tgt => {
+                const dist = Math.hypot(chX - tgt.x, chY - tgt.y);
+                if (dist < tgt.radius) {
+                    tgt.pulse = 12; // visual hit ripple
+                    state.hits++;
+                    hitsVal.textContent = state.hits;
+                    
+                    // Reposition target to simulate kill / new target
+                    const rect = touchWrapper.getBoundingClientRect();
+                    tgt.x = Math.random() * (rect.width - 120) + 60;
+                    tgt.y = Math.random() * (rect.height - 120) + 60;
+
+                    // Update accuracy percentage
+                    const acc = Math.min(100, Math.round((state.hits / (state.totalSwipes || 1)) * 100));
+                    accuracyVal.textContent = `${acc}%`;
+                }
+            });
+        }
+
+        // Main Animation Loop
+        let lastFrameTime = performance.now();
+        let frameCount = 0;
+        let fpsTimer = 0;
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+
+            // FPS Calculation
+            const delta = now - lastFrameTime;
+            lastFrameTime = now;
+            frameCount++;
+            fpsTimer += delta;
+            if (fpsTimer >= 1000) {
+                state.fps = frameCount;
+                canvasFps.textContent = `FPS: ${state.fps}`;
+                frameCount = 0;
+                fpsTimer = 0;
+            }
+
+            const rect = touchWrapper.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+
+            // Clear Canvas
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Draw Tactical Grid Background
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // 2. Center Safe Zone Circle
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, 80, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.08)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 6]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 3. Update & Draw Moving Targets
+            if (state.targetsEnabled) {
+                state.targets.forEach((tgt, idx) => {
+                    tgt.x += tgt.vx;
+                    tgt.y += tgt.vy;
+
+                    // Bounce off walls
+                    if (tgt.x < tgt.radius || tgt.x > width - tgt.radius) tgt.vx *= -1;
+                    if (tgt.y < tgt.radius || tgt.y > height - tgt.radius) tgt.vy *= -1;
+
+                    // Outer halo
+                    ctx.beginPath();
+                    ctx.arc(tgt.x, tgt.y, tgt.radius + (tgt.pulse > 0 ? tgt.pulse : 0), 0, Math.PI * 2);
+                    ctx.strokeStyle = tgt.type === 'head' ? 'rgba(255, 0, 85, 0.8)' : 'rgba(0, 255, 102, 0.7)';
+                    ctx.lineWidth = 2;
+                    ctx.fillStyle = tgt.type === 'head' ? 'rgba(255, 0, 85, 0.15)' : 'rgba(0, 255, 102, 0.1)';
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Inner Bullseye
+                    ctx.beginPath();
+                    ctx.arc(tgt.x, tgt.y, tgt.radius * 0.4, 0, Math.PI * 2);
+                    ctx.fillStyle = tgt.type === 'head' ? '#ff0055' : '#00ff66';
+                    ctx.fill();
+
+                    // Decay hit pulse
+                    if (tgt.pulse > 0) tgt.pulse -= 0.8;
+
+                    // Target tag
+                    ctx.fillStyle = '#7e8ca3';
+                    ctx.font = '10px "JetBrains Mono"';
+                    ctx.fillText(tgt.type === 'head' ? 'CRIT / HEAD' : `TGT #${idx+1}`, tgt.x - 22, tgt.y - tgt.radius - 6);
+                });
+            }
+
+            // 4. Smooth recoil decay
+            state.recoilOffset.x *= 0.88;
+            state.recoilOffset.y *= 0.88;
+
+            const renderX = state.crosshair.x + state.recoilOffset.x;
+            const renderY = state.crosshair.y + state.recoilOffset.y;
+
+            // 5. Draw Interactive Crosshair
+            drawCrosshair(renderX, renderY);
+        }
+
+        // Tactical Gamer Crosshair Drawing
+        function drawCrosshair(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Dynamic spread based on drag velocity
+            const dynamicSpread = 10 + Math.min(20, Math.hypot(state.dragVelocity.x, state.dragVelocity.y) * 1.5);
+
+            // Neon Glow
+            ctx.shadowColor = '#00f3ff';
+            ctx.shadowBlur = 8;
+
+            // Center dot
+            ctx.fillStyle = '#00f3ff';
+            ctx.beginPath();
+            ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4 Crosshair ticks
+            ctx.strokeStyle = '#00f3ff';
+            ctx.lineWidth = 2;
+
+            // Top
+            ctx.beginPath();
+            ctx.moveTo(0, -dynamicSpread);
+            ctx.lineTo(0, -(dynamicSpread + 10));
+            ctx.stroke();
+
+            // Bottom
+            ctx.beginPath();
+            ctx.moveTo(0, dynamicSpread);
+            ctx.lineTo(0, dynamicSpread + 10);
+            ctx.stroke();
+
+            // Left
+            ctx.beginPath();
+            ctx.moveTo(-dynamicSpread, 0);
+            ctx.lineTo(-(dynamicSpread + 10), 0);
+            ctx.stroke();
+
+            // Right
+            ctx.beginPath();
+            ctx.moveTo(dynamicSpread, 0);
+            ctx.lineTo(dynamicSpread + 10, 0);
+            ctx.stroke();
+
+            // Vertical Bias Indicator (Red bracket if Y > X)
+            if (state.sensY > state.sensX) {
+                ctx.strokeStyle = 'rgba(255, 0, 85, 0.7)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(-16, -(dynamicSpread + 14));
+                ctx.lineTo(16, -(dynamicSpread + 14));
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            // Dissipate drag velocity gradually
+            state.dragVelocity.x *= 0.8;
+            state.dragVelocity.y *= 0.8;
+        }
+
+        // Event Listeners Setup
+        function setupEventListeners() {
+            window.addEventListener('resize', resizeCanvas);
+
+            // Canvas Touch / Mouse Interactions
+            touchWrapper.addEventListener('mousedown', handleDragStart);
+            window.addEventListener('mousemove', handleDragMove);
+            window.addEventListener('mouseup', handleDragEnd);
+
+            touchWrapper.addEventListener('touchstart', handleDragStart, { passive: false });
+            window.addEventListener('touchmove', handleDragMove, { passive: false });
+            window.addEventListener('touchend', handleDragEnd);
+            window.addEventListener('touchcancel', handleDragEnd);
+
+            // Sensitivity Sliders
+            sensXSlider.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                state.sensX = val;
+                if (state.ratioLocked) {
+                    state.sensY = Math.min(4.0, Math.max(0.2, val * state.lockedRatioValue));
+                }
+                updateSensUI();
+            });
+
+            sensYSlider.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                state.sensY = val;
+                if (state.ratioLocked) {
+                    state.sensX = Math.min(4.0, Math.max(0.2, val / state.lockedRatioValue));
+                }
+                updateSensUI();
+            });
+
+            // Ratio Lock / Unlock
+            ratioLockBtn.addEventListener('click', () => {
+                state.ratioLocked = !state.ratioLocked;
+                if (state.ratioLocked) {
+                    state.lockedRatioValue = state.sensY / (state.sensX || 0.001);
+                    ratioLockBtn.className = "px-2.5 py-1 rounded-md text-xs font-mono border border-cyber-neonCyan bg-cyan-500/20 text-cyber-neonCyan flex items-center gap-1.5 transition";
+                    ratioLockIcon.className = "fa-solid fa-lock";
+                    ratioLockText.textContent = "RATIO LOCKED";
+                    showToast(`Locked at 1 : ${state.lockedRatioValue.toFixed(2)}`);
+                } else {
+                    ratioLockBtn.className = "px-2.5 py-1 rounded-md text-xs font-mono border border-cyan-500/40 bg-cyan-950/30 text-cyber-neonCyan flex items-center gap-1.5 transition";
+                    ratioLockIcon.className = "fa-solid fa-link";
+                    ratioLockText.textContent = "RATIO UNLOCKED";
+                    showToast('X and Y can now be tuned independently');
+                }
+            });
+
+            // Presets Click Handler
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const presetKey = btn.getAttribute('data-preset');
+                    const config = presets[presetKey];
+                    if (config) {
+                        state.sensX = config.x;
+                        state.sensY = config.y;
+                        state.baseDpi = config.dpi;
+                        dpiSelect.value = String(config.dpi);
+                        updateSensUI();
+                        showToast(`Applied preset: ${config.desc}`);
+                    }
+                });
+            });
+
+            // DPI Selector
+            dpiSelect.addEventListener('change', (e) => {
+                state.baseDpi = parseInt(e.target.value);
+                dpiValText.textContent = `${state.baseDpi} DPI`;
+                updateConfigOutputs();
+                showToast(`Screen scaled for ${state.baseDpi} DPI display`);
+            });
+
+            // Scope Selector
+            scopeSelect.addEventListener('change', (e) => {
+                const map = { general: 1.0, reddot: 0.9, scope2x: 0.8, scope4x: 0.6, sniper: 0.4 };
+                state.scopeMultiplier = map[e.target.value] || 1.0;
+                showToast(`Aim modifier: ${e.target.value.toUpperCase()} (${state.scopeMultiplier}x)`);
+            });
+
+            // Acceleration Curve Buttons
+            document.querySelectorAll('.accel-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.accel-btn').forEach(b => {
+                        b.className = "accel-btn py-1 px-2 rounded border border-cyber-cardBorder bg-black/30 text-cyber-dimText hover:border-white/20";
+                    });
+                    btn.className = "accel-btn py-1 px-2 rounded border border-cyber-neonCyan bg-cyan-950/40 text-cyber-neonCyan";
+                    state.accelMode = btn.getAttribute('data-accel');
+                    document.getElementById('accelModeText').textContent = 
+                        state.accelMode === 'linear' ? 'Linear (1:1 Muscle Memory)' : 
+                        state.accelMode === 'speed' ? 'Speed Acceleration (Flick boost)' : 'Smoothing (Stabilized Drag)';
+                });
+            });
+
+            // Recoil Toggle
+            toggleRecoilBtn.addEventListener('click', () => {
+                state.recoilEnabled = !state.recoilEnabled;
+                if (state.recoilEnabled) {
+                    toggleRecoilBtn.classList.remove('opacity-50');
+                    toggleRecoilBtn.querySelector('span:first-child').className = "w-2 h-2 rounded-full bg-red-500 animate-pulse";
+                    showToast('Recoil impulse active on tap/swipe');
+                } else {
+                    toggleRecoilBtn.classList.add('opacity-50');
+                    toggleRecoilBtn.querySelector('span:first-child').className = "w-2 h-2 rounded-full bg-slate-500";
+                    showToast('Recoil impulse disabled');
+                }
+            });
+
+            // Target Toggle
+            toggleTargetBtn.addEventListener('click', () => {
+                state.targetsEnabled = !state.targetsEnabled;
+                if (state.targetsEnabled) {
+                    toggleTargetBtn.classList.remove('opacity-50');
+                    showToast('Moving targets visible');
+                } else {
+                    toggleTargetBtn.classList.add('opacity-50');
+                    showToast('Targets hidden');
+                }
+            });
+
+            // Center Aim Button
+            centerAimBtn.addEventListener('click', () => {
+                const rect = touchWrapper.getBoundingClientRect();
+                state.crosshair.x = rect.width / 2;
+                state.crosshair.y = rect.height / 2;
+                state.recoilOffset.x = 0;
+                state.recoilOffset.y = 0;
+                hudPos.textContent = `X: ${Math.round(state.crosshair.x)}, Y: ${Math.round(state.crosshair.y)}`;
+                showToast('Crosshair re-centered');
+            });
+
+            // Reset Hits Button
+            resetScoreBtn.addEventListener('click', () => {
+                state.hits = 0;
+                state.totalSwipes = 0;
+                hitsVal.textContent = '0';
+                accuracyVal.textContent = '0%';
+                showToast('Aim statistics reset');
+            });
+
+            // Master Reset Button
+            resetDefaultsBtn.addEventListener('click', () => {
+                state.sensX = 1.80;
+                state.sensY = 2.40;
+                state.ratioLocked = false;
+                state.baseDpi = 420;
+                dpiSelect.value = "420";
+                scopeSelect.value = "general";
+                state.scopeMultiplier = 1.0;
+                state.accelMode = 'linear';
+                
+                ratioLockBtn.className = "px-2.5 py-1 rounded-md text-xs font-mono border border-cyan-500/40 bg-cyan-950/30 text-cyber-neonCyan flex items-center gap-1.5 transition";
+                ratioLockIcon.className = "fa-solid fa-link";
+                ratioLockText.textContent = "RATIO UNLOCKED";
+
+                updateSensUI();
+                const rect = touchWrapper.getBoundingClientRect();
+                state.crosshair.x = rect.width / 2;
+                state.crosshair.y = rect.height / 2;
+                showToast('Factory sensitivity defaults restored');
+            });
+
+            // Copy Config Button
+            copyConfigBtn.addEventListener('click', copyConfiguration);
+        }
+
+        // Initialize on Window Load
+        window.onload = function() {
+            resizeCanvas();
+            setupEventListeners();
+            updateSensUI();
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>
