@@ -28,6 +28,12 @@ jobs:
 
           cp index.html android-app/app/src/main/assets/
 
+          # Enable AndroidX
+          cat << 'EOF' > android-app/gradle.properties
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF
+
           cat << 'EOF' > android-app/settings.gradle
           pluginManagement {
               repositories {
